@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pos_app/database/database_helper.dart';
-import 'package:pos_app/models/user_model.dart';
 import 'package:pos_app/screens/auth/register_screen.dart';
+import 'package:pos_app/screens/auth/forgot_password_screen.dart';
 import 'package:pos_app/screens/home/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -99,7 +99,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ForgotPasswordScreen(),
+                      ),
+                    );
+                  },
                   child: const Text('Lost Password?'),
                 ),
               ],

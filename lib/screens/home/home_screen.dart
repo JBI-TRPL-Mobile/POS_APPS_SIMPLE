@@ -4,16 +4,72 @@ import 'package:pos_app/screens/auth/login_screen.dart';
 import 'package:pos_app/screens/pos/pos_screen.dart';
 import 'package:pos_app/screens/product/product_management_screen.dart';
 import 'package:pos_app/screens/transaction/transaction_history_screen.dart';
+import 'package:pos_app/screens/profile/profile_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final User user;
   const HomeScreen({super.key, required this.user});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0;
+  late User _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentUser = widget.user;
+  }
+
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // currentUser initialized in initState
+
+    final List<Widget> pages = [
+      _dashboard(context),
+      const TransactionHistoryScreen(),
+      ProfileScreen(user: _currentUser),
+    ];
+
+    return Scaffold(
+      body: pages[_selectedIndex],
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          indicatorColor: Colors.blue.shade50,
+          labelTextStyle: MaterialStateProperty.all(
+            const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: _onItemTapped,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.dashboard), label: 'Home'),
+            NavigationDestination(icon: Icon(Icons.history), label: 'Transactions'),
+            NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const PosScreen()));
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _dashboard(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: Text('Dashboard - ${_currentUser.fullname}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -32,7 +88,7 @@ class HomeScreen extends StatelessWidget {
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
         children: [
-          _buildDashboardCard(
+            _buildDashboardCard(
             context,
             icon: Icons.point_of_sale,
             label: 'Transaksi Baru',
@@ -57,15 +113,24 @@ class HomeScreen extends StatelessWidget {
             icon: Icons.history,
             label: 'Riwayat Transaksi',
             onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const TransactionHistoryScreen()));
+              setState(() => _selectedIndex = 1);
             },
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _openProfile() async {
+    final updated = await Navigator.push<User?>(
+      context,
+      MaterialPageRoute(builder: (context) => ProfileScreen(user: _currentUser)),
+    );
+    if (updated != null) {
+      setState(() {
+        _currentUser = updated;
+      });
+    }
   }
 
   Widget _buildDashboardCard(BuildContext context,

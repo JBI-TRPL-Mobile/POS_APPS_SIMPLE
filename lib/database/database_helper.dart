@@ -99,6 +99,30 @@ class DatabaseHelper {
     return await db.insert('users', user.toMap());
   }
 
+  Future<User?> getUserById(int id) async {
+    final db = await instance.database;
+    final res = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    if (res.isNotEmpty) return User.fromMap(res.first);
+    return null;
+  }
+
+  Future<User?> getUserByUsername(String username) async {
+    final db = await instance.database;
+    final res = await db.query('users', where: 'username = ?', whereArgs: [username]);
+    if (res.isNotEmpty) return User.fromMap(res.first);
+    return null;
+  }
+
+  Future<int> updateUser(User user) async {
+    final db = await instance.database;
+    return await db.update(
+      'users',
+      user.toMap(),
+      where: 'id = ?',
+      whereArgs: [user.id],
+    );
+  }
+
   // Product Operations
   Future<int> createProduct(Product product) async {
     final db = await instance.database;
