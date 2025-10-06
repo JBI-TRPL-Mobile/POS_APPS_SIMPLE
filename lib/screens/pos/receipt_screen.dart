@@ -1,13 +1,12 @@
-// lib/screens/pos/receipt_screen.dart
-
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:pos_app/database/database_helper.dart';
 import 'package:pos_app/models/transaction_model.dart' as model;
 import 'package:screenshot/screenshot.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+// path_provider removed; not used
 
 class ReceiptScreen extends StatefulWidget {
   final int transactionId;
@@ -20,7 +19,6 @@ class ReceiptScreen extends StatefulWidget {
 class _ReceiptScreenState extends State<ReceiptScreen> {
   late Future<Map<String, dynamic>> _detailsFuture;
 
-  // 1. Buat ScreenshotController
   final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
@@ -37,34 +35,133 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     return {'transaction': transaction, 'details': details};
   }
 
-  // 2. Buat fungsi untuk download struk
-  void _downloadReceipt() async {
-    // Minta izin penyimpanan
-    var status = await Permission.storage.request();
-    if (status.isGranted) {
-      // Tangkap widget sebagai gambar (Uint8List)
-      final Uint8List? image = await _screenshotController.capture();
+  // Fungsi untuk memeriksa izin
+  Future<bool> _checkAndRequestPermissions() async {
+    var storageStatus = await Permission.storage.status;
+    var mediaStatus = await Permission.mediaLibrary.status;
+    var photosStatus = await Permission.photos.status;
 
-      if (image != null) {
-        // Simpan gambar ke galeri
-        final result = await ImageGallerySaver.saveImage(image);
-        if (result['isSuccess']) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Struk berhasil disimpan di galeri!')),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Gagal menyimpan struk.')),
-          );
-        }
+    if (storageStatus.isPermanentlyDenied ||
+        mediaStatus.isPermanentlyDenied ||
+        photosStatus.isPermanentlyDenied) {
+      final shouldOpenSettings = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Izin Diperlukan'),
+              content: const Text(
+                  'Untuk menyimpan struk ke galeri, aplikasi memerlukan izin penyimpanan. '
+                  'Silakan buka pengaturan untuk memberikan izin yang diperlukan.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Batal'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Buka Pengaturan'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (shouldOpenSettings) {
+        await openAppSettings();
+        // Periksa ulang izin setelah kembali dari settings
+        return await _checkAndRequestPermissions();
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Izin penyimpanan ditolak.')),
-      );
+      return false;
     }
 
-    // Kembali ke halaman utama
+    if (storageStatus.isDenied ||
+        mediaStatus.isDenied ||
+        photosStatus.isDenied) {
+      final shouldRequest = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Izin Diperlukan'),
+              content: const Text(
+                  'Aplikasi memerlukan izin untuk menyimpan struk ke galeri foto Anda. '
+                  'Izin ini diperlukan agar struk dapat disimpan sebagai bukti transaksi.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Tidak'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (!shouldRequest) return false;
+
+      final results = await Future.wait([
+        Permission.storage.request(),
+        Permission.mediaLibrary.request(),
+        Permission.photos.request(),
+      ]);
+
+      return results.every((status) => status.isGranted);
+    }
+
+    return storageStatus.isGranted &&
+        mediaStatus.isGranted &&
+        photosStatus.isGranted;
+  }
+
+  // 2. Fungsi untuk download struk
+  void _downloadReceipt() async {
+    bool hasPermission = await _checkAndRequestPermissions();
+    if (hasPermission) {
+      try {
+        final Uint8List? image = await _screenshotController.capture();
+
+        if (image != null) {
+          // Gunakan platform channel untuk menyimpan gambar ke galeri
+          final methodChannel = const MethodChannel('pos_app/gallery');
+          try {
+            final result = await methodChannel.invokeMethod('saveImage', {
+              'imageData': image,
+              'name':
+                  'Receipt_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
+            });
+
+            if (result == true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Struk berhasil disimpan di galeri!')),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Gagal menyimpan struk.')),
+              );
+            }
+          } catch (e) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error menyimpan struk: ${e.toString()}')),
+            );
+          }
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aplikasi memerlukan izin untuk menyimpan struk.'),
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -98,7 +195,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 3. Bungkus struk dengan Screenshot Widget
+                // Receipt preview
                 Screenshot(
                   controller: _screenshotController,
                   child: Card(
