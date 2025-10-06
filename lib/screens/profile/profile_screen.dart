@@ -25,9 +25,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _passwordController = TextEditingController(text: widget.user.password);
   }
 
+  @override
+  void dispose() {
+    _fullnameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   void _saveProfile() async {
     final newUsername = _usernameController.text.trim();
     final existing = await DatabaseHelper.instance.getUserByUsername(newUsername);
+    if (!mounted) return;
     if (existing != null && existing.id != widget.user.id) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Username sudah dipakai')));
       return;

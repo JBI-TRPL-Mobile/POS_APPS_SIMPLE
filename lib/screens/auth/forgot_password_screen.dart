@@ -12,6 +12,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
 
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
   void _resetPassword() async {
     final username = _usernameController.text.trim();
     final email = _emailController.text.trim();
@@ -29,20 +36,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
 
     // Ask user to enter new password
-    final newPassword = await showDialog<String?>(
+    final newPassword = await showDialog<String?> (
       context: context,
       builder: (context) {
-        final _pwController = TextEditingController();
+        final pwController = TextEditingController();
         return AlertDialog(
           title: const Text('Set Password Baru'),
           content: TextField(
-            controller: _pwController,
+            controller: pwController,
             decoration: const InputDecoration(labelText: 'New Password'),
             obscureText: true,
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(null), child: const Text('Batal')),
-            TextButton(onPressed: () => Navigator.of(context).pop(_pwController.text), child: const Text('Simpan')),
+            TextButton(onPressed: () { pwController.dispose(); Navigator.of(context).pop(null); }, child: const Text('Batal')),
+            TextButton(onPressed: () { final val = pwController.text; pwController.dispose(); Navigator.of(context).pop(val); }, child: const Text('Simpan')),
           ],
         );
       },

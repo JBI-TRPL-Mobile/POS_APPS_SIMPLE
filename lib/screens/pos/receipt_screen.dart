@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -44,6 +43,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     if (storageStatus.isPermanentlyDenied ||
         mediaStatus.isPermanentlyDenied ||
         photosStatus.isPermanentlyDenied) {
+      if (!mounted) return false;
       final shouldOpenSettings = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -76,6 +76,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
     if (storageStatus.isDenied ||
         mediaStatus.isDenied ||
         photosStatus.isDenied) {
+      if (!mounted) return false;
       final shouldRequest = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -115,10 +116,11 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
 
   // 2. Fungsi untuk download struk
   void _downloadReceipt() async {
-    bool hasPermission = await _checkAndRequestPermissions();
+    final hasPermission = await _checkAndRequestPermissions();
+    if (!mounted) return;
     if (hasPermission) {
       try {
-        final Uint8List? image = await _screenshotController.capture();
+        final image = await _screenshotController.capture();
 
         if (image != null) {
           // Gunakan platform channel untuk menyimpan gambar ke galeri
@@ -130,6 +132,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                   'Receipt_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}',
             });
 
+            if (!mounted) return;
             if (result == true) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -141,12 +144,14 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
               );
             }
           } catch (e) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Error menyimpan struk: ${e.toString()}')),
             );
           }
         }
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
         );
@@ -162,9 +167,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
       }
     }
 
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -217,8 +220,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                           Text(
                               'Tanggal: ${DateFormat('dd MMMM yyyy, HH:mm', 'id_ID').format(transaction.transactionDate)}'),
                           const Divider(height: 30),
-                          ...details
-                              .map((item) => Padding(
+                          ...details.map((item) => Padding(
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 4.0),
                                     child: Row(
@@ -232,8 +234,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                                             'Rp. ${item.priceAtTransaction * item.quantity}'),
                                       ],
                                     ),
-                                  ))
-                              .toList(),
+                                  )),
                           const Divider(height: 30),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
